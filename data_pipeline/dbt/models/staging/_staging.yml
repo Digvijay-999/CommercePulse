@@ -1,7 +1,81 @@
 version: 2
 
+# Tests on the staging models. Most are errors: they should never fail.
+# The ones marked `severity: warn` WILL find rows: the generator plants a known set of invalid
+# rows on purpose (docs/data-dictionary.md, manifest.json -> invalid_rows). They warn instead of
+# failing the build so Phase 1 stays green. Phase 3 handles those rows properly.
+
 models:
   - name: stg_events
     description: "Grain: one row per raw event row (deliberately invalid rows kept). Casts and light cleanup only."
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+          # warn: 25 planted duplicate event rows (invalid_rows.duplicate_event_id, 5 of them purchases).
+          - unique:
+              config:
+                severity: warn
+      - name: source
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["synthetic", "ga4"]
+      - name: event_timestamp
+        data_tests: [not_null]
+      - name: event_date
+        data_tests: [not_null]
+      - name: event_name
+        data_tests:
+          - not_null
+          # warn: 30 planted 'add_to_wishlist' events (invalid_rows.unknown_event_name).
+          # It reports "1 result": accepted_values counts distinct bad values, not rows.
+          - accepted_values:
+              arguments:
+                values: ["session_start", "page_view", "view_item", "add_to_cart", "begin_checkout", "purchase"]
+              config:
+                severity: warn
+      - name: user_id
+        data_tests: [not_null]
+      - name: session_id
+        data_tests:
+          # warn: 20 planted page_view events without a session_id (invalid_rows.missing_session_id).
+          - not_null:
+              config:
+                severity: warn
+      - name: device_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["desktop", "mobile", "tablet"]
+      - name: transaction_id
+        description: "Required on purchase events only, so the test only looks at purchases."
+        data_tests:
+          # warn: 10 planted purchases without a transaction_id (invalid_rows.purchase_missing_transaction_id).
+          - not_null:
+              config:
+                where: "event_name = 'purchase'"
+                severity: warn
+
   - name: stg_event_items
     description: "Grain: one row per item inside an event; (event_id, item_index) is unique. Casts and light cleanup only."
+    # The 15 planted negative prices (invalid_rows.negative_price) are not tested yet: Phase 3 adds range checks.
+    columns:
+      - name: event_id
+        data_tests: [not_null]
+      - name: item_index
+        data_tests: [not_null]
+      - name: item_id
+        data_tests: [not_null]
+      - name: item_name
+        data_tests: [not_null]
+      - name: item_category
+        data_tests: [not_null]
+      - name: price
+        data_tests: [not_null]
+      - name: quantity
+        data_tests: [not_null]
+      - name: item_revenue
+        data_tests: [not_null]

@@ -9,3 +9,11 @@ dependencies = [
     "numpy>=2.5.5",
     "pyarrow>=26.0.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["data_pipeline/tests"]
