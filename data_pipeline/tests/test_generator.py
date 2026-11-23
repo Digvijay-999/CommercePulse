@@ -26,10 +26,24 @@ EXPECTED_INVALID_ROWS = {
     "negative_price": 15,
 }
 EXPECTED_DUPLICATE_PURCHASES = 5
+# Column names, order and Parquet types from docs/data-dictionary.md.
+STRING, MONEY = "string", "decimal128(12, 2)"
+EXPECTED_SCHEMAS = {
+    "raw_events.parquet": [
+        ("event_id", STRING), ("source", STRING), ("event_timestamp", "timestamp[us, tz=UTC]"),
+        ("event_date", "date32[day]"), ("event_name", STRING), ("user_id", STRING), ("session_id", STRING),
+        ("device_category", STRING), ("country", STRING), ("traffic_source", STRING), ("traffic_medium", STRING),
+        ("traffic_campaign", STRING), ("transaction_id", STRING), ("purchase_revenue", MONEY), ("currency", STRING),
+    ],
+    "raw_event_items.parquet": [
+        ("event_id", STRING), ("item_index", "int32"), ("item_id", STRING), ("item_name", STRING),
+        ("item_category", STRING), ("price", MONEY), ("quantity", "int32"), ("item_revenue", MONEY),
+    ],
+}
 
 
-def generate(out, seed):
-    subprocess.run([sys.executable, str(GENERATOR), "--seed", str(seed), "--out", str(out), *SMALL], check=True)
+def generate(out, seed, size=SMALL):
+    subprocess.run([sys.executable, str(GENERATOR), "--seed", str(seed), "--out", str(out), *size], check=True)
     return out
 
 
@@ -51,6 +65,7 @@ def run(tmp_path_factory):
 def con(run):
     """DuckDB connection with views `ev` (raw_events) and `it` (raw_event_items) over the run's files."""
     con = duckdb.connect()
+    con.execute("set TimeZone = 'UTC'")  # otherwise timestamp -> date uses this computer's time zone
     con.execute(f"create view ev as select * from read_parquet('{(run / 'raw_events.parquet').as_posix()}')")
     con.execute(f"create view it as select * from read_parquet('{(run / 'raw_event_items.parquet').as_posix()}')")
     yield con
@@ -75,6 +90,35 @@ def test_manifest_row_counts_match_parquet(run):
     assert sorted(row_counts) == sorted(PARQUET_FILES)
     for name in PARQUET_FILES:
         assert row_counts[name] == pq.read_metadata(run / name).num_rows, name
+
+
+def test_tiny_run_works(tmp_path):
+    """1 user, 1 session, 1 day. With seed 1 nobody views a product, so there are zero item rows (this used to crash)."""
+    out = generate(tmp_path / "tiny", seed=1, size=["--users", "1", "--sessions", "1", "--days", "1"])
+    row_counts = read_manifest(out)["row_counts"]
+    for name in PARQUET_FILES:
+        assert row_counts[name] == pq.read_metadata(out / name).num_rows, name
+
+
+def test_files_follow_the_contract(run, con):
+    """Columns and types match the data dictionary; dates, item links and purchase-only fields are consistent."""
+    for name, expected in EXPECTED_SCHEMAS.items():
+        assert [(f.name, str(f.type)) for f in pq.read_schema(run / name)] == expected, name
+
+    manifest = read_manifest(run)
+    problems = con.execute(
+        """
+        select
+            count(*) filter (where event_date not between ?::date and ?::date)        as outside_date_range,
+            count(*) filter (where event_date <> cast(event_timestamp as date))      as date_not_utc_date_of_timestamp,
+            (select count(*) from it where event_id not in (select event_id from ev)) as orphan_items,
+            count(*) filter (where event_name <> 'purchase' and (transaction_id is not null
+                             or purchase_revenue is not null or currency is not null)) as order_fields_on_non_purchase
+        from ev
+        """,
+        [manifest["start_date"], manifest["end_date"]],
+    ).fetchone()
+    assert problems == (0, 0, 0, 0)
 
 
 def test_planted_invalid_rows_match_manifest(run, con):

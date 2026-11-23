@@ -51,5 +51,9 @@ dbt must run from the repo root: the paths in `profiles.yml` and `_sources.yml` 
   So 1.5.5 is the version dbt-duckdb actually stands behind.
 - Before upgrading either one, check dbt-duckdb's release notes and `tox.ini` for the DuckDB version
   they test against. Upgrade both together, then rerun the generator, `dbt build` and `pytest`.
+- **numpy and pyarrow** (locked in `uv.lock`): "same seed → byte-identical Parquet" only holds with
+  the locked versions. NumPy doesn't promise the same random numbers across versions, and every
+  Parquet file records the PyArrow version that wrote it. After upgrading either one, expect
+  different files for the same seed. That's fine, but say so in the commit.
 - dbt-core (1.12.x, dbt Core v1) comes in through dbt-duckdb and is locked by `uv.lock`.
   dbt prints "dbt v2 is available". Ignore that until dbt-duckdb officially supports v2.

@@ -19,9 +19,10 @@ models:
       - name: source
         data_tests:
           - not_null
+          # Only the active source is allowed, so sources never mix in one warehouse.
           - accepted_values:
               arguments:
-                values: ["synthetic", "ga4"]
+                values: ["{{ env_var('COMMERCEPULSE_SOURCE', 'synthetic') }}"]
       - name: event_timestamp
         data_tests: [not_null]
       - name: event_date
