@@ -62,3 +62,31 @@ Which items each event type carries (synthetic):
 - `view_item`: the one product viewed, quantity 1.
 - `add_to_cart`: the one product added, with its quantity.
 - `begin_checkout` and `purchase`: every product in the cart, with quantities.
+
+## Deliberately invalid rows (synthetic data only)
+
+The generator breaks a small, fixed number of rows **on purpose**, so later quality checks
+have something real to find. Phase 1 keeps them in staging and only *warns* about them.
+Phase 3 handles them properly. `manifest.json` → `invalid_rows` records the real count per
+category, with the same descriptions as below.
+
+| Category | File | Rows | What was done | Phase 1 dbt test that sees it (warn) |
+|---|---|---|---|---|
+| `missing_session_id` | `raw_events` | 20 | `page_view` events whose `session_id` was set to null | `not_null` on `stg_events.session_id` |
+| `unknown_event_name` | `raw_events` | 30 | Extra events named `add_to_wishlist` (not in the contract), inside real sessions, with no items | `accepted_values` on `stg_events.event_name` |
+| `duplicate_event_id` | `raw_events` | 25 | Exact copies of existing event rows (same `event_id`, same everything). 5 of them copy `purchase` events | `unique` on `stg_events.event_id` |
+| `purchase_missing_transaction_id` | `raw_events` | 10 | `purchase` events whose `transaction_id` was set to null. Revenue and items are kept | `not_null` on `stg_events.transaction_id` (purchases only) |
+| `negative_price` | `raw_event_items` | 15 | Items on `view_item` events whose `price` was made negative (`item_revenue` = price × quantity, so it is negative too) | none yet (Phase 3 adds range checks) |
+
+Rules that make these rows "known":
+
+- **Each planted row has exactly one problem.** A row picked for one category is never picked
+  for another. This includes the events whose items got a negative price.
+- **Duplicates copy only the `raw_events` row, never its items.** `raw_event_items` has no
+  duplicate rows, so `(event_id, item_index)` stays unique. To find a duplicated event's items,
+  join on `event_id` *after* removing the duplicate event rows, or revenue gets counted twice.
+- **Negative prices are only on `view_item` items**, never on purchases, so order revenue
+  (`purchase_revenue` = sum of the purchase's `item_revenue`) is never affected.
+- The counts are fixed constants in `generate_synthetic.py` (`INVALID_ROWS`). With very small
+  `--users`/`--sessions`, there may not be enough candidate rows. Then fewer are planted, and
+  `manifest.json` records the real numbers.

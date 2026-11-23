@@ -3,4 +3,7 @@ name = "commercepulse"
 version = "0.1.0"
 description = "Retail event analytics: synthetic e-commerce events -> Parquet -> DuckDB + dbt"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.5",
+    "pyarrow>=26.0.1",
+]
