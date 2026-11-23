@@ -1,0 +1,18 @@
+# Generated data and warehouses (rebuild them with the generator + dbt)
+/data/
+*.duckdb
+*.duckdb.wal
+
+# Secrets and local settings
+.env
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# dbt build output
+target/
+logs/
+dbt_packages/
+.user.yml
