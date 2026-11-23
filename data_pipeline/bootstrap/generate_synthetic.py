@@ -268,12 +268,13 @@ def plant_invalid_rows(rng, events, items):
     planted.update(it[IT["event_id"]] for it in rows)  # keep their events out of the other categories
     counts["negative_price"] = len(rows)
 
-    # New events in real sessions, half a second after a product view, with an unknown name.
+    # New events in real sessions, with an unknown name. Half a second BEFORE a product view:
+    # the event before a view_item is always >= 1 s earlier, so this stays inside the session and date range.
     rows = []
     for e in pick(unplanted("view_item"), target("unknown_event_name")):
         extra = list(e)
         extra[EV["event_id"]] = f"evt_{len(events) + len(rows) + 1:09d}"
-        extra[EV["event_timestamp"]] += 500_000
+        extra[EV["event_timestamp"]] -= 500_000
         extra[EV["event_name"]] = UNKNOWN_EVENT_NAME
         rows.append(extra)
     events.extend(rows)
@@ -302,8 +303,9 @@ def cents_to_decimal(values):
 
 def write_parquet(events, items, out):
     """Write both tables with explicit Arrow types, so the files match the contract exactly."""
-    ev = dict(zip(EVENT_COLUMNS, zip(*events)))  # list of rows -> one tuple per column
-    it = dict(zip(ITEM_COLUMNS, zip(*items)))
+    # List of rows -> one list per column (also works when there are zero rows).
+    ev = {name: [row[i] for row in events] for i, name in enumerate(EVENT_COLUMNS)}
+    it = {name: [row[i] for row in items] for i, name in enumerate(ITEM_COLUMNS)}
     string = lambda values: pa.array(values, pa.string())
     events_table = pa.table({
         "event_id": string(ev["event_id"]),
