@@ -42,3 +42,14 @@ uv run dbt build --project-dir data_pipeline/dbt --profiles-dir data_pipeline/db
 uv run pytest                                                  # Python tests
 ```
 dbt must run from the repo root: the paths in `profiles.yml` and `_sources.yml` are relative to it.
+
+## Do not upgrade without checking
+- **`dbt-duckdb==1.11.1` + `duckdb==1.5.5`** (pinned in `pyproject.toml`, locked in `uv.lock`).
+  Why: dbt-duckdb 1.11.1 is the newest release (26 Oct 2026). Its package only says `duckdb>=1.0.0`,
+  but its own test setup (`tox.ini`) and its MotherDuck extra pin **duckdb 1.5.5**.
+  DuckDB 2.0 (21 Oct 2026) is only covered by their nightly "pre-release" CI job.
+  So 1.5.5 is the version dbt-duckdb actually stands behind.
+- Before upgrading either one, check dbt-duckdb's release notes and `tox.ini` for the DuckDB version
+  they test against. Upgrade both together, then rerun the generator, `dbt build` and `pytest`.
+- dbt-core (1.12.x, dbt Core v1) comes in through dbt-duckdb and is locked by `uv.lock`.
+  dbt prints "dbt v2 is available". Ignore that until dbt-duckdb officially supports v2.

@@ -1,0 +1,7 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: "Grain: one row per raw event row (deliberately invalid rows kept). Casts and light cleanup only."
+  - name: stg_event_items
+    description: "Grain: one row per item inside an event; (event_id, item_index) is unique. Casts and light cleanup only."

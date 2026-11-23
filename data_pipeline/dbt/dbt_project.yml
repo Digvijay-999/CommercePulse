@@ -1,0 +1,14 @@
+name: commercepulse
+version: "0.1.0"
+profile: commercepulse      # the connection settings in profiles.yml (same folder)
+model-paths: ["models"]
+
+flags:
+  send_anonymous_usage_stats: false   # don't send usage data to dbt Labs
+
+models:
+  commercepulse:
+    staging:
+      # Tables, not views: a view only stores the relative path to the Parquet file, which breaks
+      # when the database is opened from another folder (for example by the API in a later phase).
+      +materialized: table

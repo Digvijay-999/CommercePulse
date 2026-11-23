@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw Parquet files of the active source (COMMERCEPULSE_SOURCE, default synthetic), written by
+      the generator or importer. Column meanings: docs/data-dictionary.md.
+    config:
+      meta:
+        # dbt-duckdb reads the Parquet file directly. It replaces {name} with the table name below.
+        external_location: "data/raw/{{ env_var('COMMERCEPULSE_SOURCE', 'synthetic') }}/{name}.parquet"
+    tables:
+      - name: raw_events
+        description: "Grain: one row per event."
+      - name: raw_event_items
+        description: "Grain: one row per item inside an event."

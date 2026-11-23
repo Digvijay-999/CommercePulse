@@ -362,6 +362,8 @@ def main(argv=None):
     items.sort(key=lambda it: (it[IT["event_id"]], it[IT["item_index"]]))
 
     args.out.mkdir(parents=True, exist_ok=True)
+    # dbt keeps its DuckDB file in data/warehouse/, and DuckDB won't create a missing folder.
+    (REPO_ROOT / "data" / "warehouse").mkdir(parents=True, exist_ok=True)
     row_counts = write_parquet(events, items, args.out)
     manifest = {
         "source": SOURCE,

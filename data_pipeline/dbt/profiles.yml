@@ -1,0 +1,12 @@
+# dbt connection settings. They live in the repo (not in ~/.dbt), so a fresh clone works as is.
+# Paths are relative to the repo root, so always run dbt from there (see README.md).
+commercepulse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # One DuckDB file per source: data/warehouse/synthetic.duckdb or data/warehouse/ga4.duckdb
+      path: "data/warehouse/{{ env_var('COMMERCEPULSE_SOURCE', 'synthetic') }}.duckdb"
+      threads: 4
+      settings:
+        TimeZone: UTC   # dates and times are always UTC, never your computer's local time zone
